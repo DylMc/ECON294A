@@ -110,3 +110,4 @@ median_price_subset
 print("The median price for diamonds with greater than 2 carats, and cut 'Ideal' 
 or 'very good' is zero; no diamonds in the dataframe meet this condition.")
 
+
