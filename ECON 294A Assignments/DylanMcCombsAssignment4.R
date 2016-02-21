@@ -5,11 +5,15 @@
 # Github link: git@github.com:DylMc/ECON294A.git
 
 # Question 0
-print("Dylan McCombs, 1505117, dmccombs@ucsc.edu")
+cat("Dylan McCombs, 
+    1505117, 
+    dmccombs@ucsc.edu"
+)
 
 
 # Question 1
 library(foreign)
+library(dplyr)
 flights <- read.csv("https://github.com/EconomiCurtis/econ294_2015/raw/master/data/flights.csv",
                     stringsAsFactors=F)
 planes <- read.csv("https://github.com/EconomiCurtis/econ294_2015/raw/master/data/planes.csv",
@@ -109,11 +113,12 @@ flights.7a %>%
 cat( "The block of code on the assignment handout (which is updated using dplyr
       below) creates a data frame called 'day_delay' which filters through
       the original flights data set, removing any NAs from the dep_delay
-      variable. Then, the df is grouped by date with two summary statistics
+      column. Then, the df is grouped by date with two summary statistics
       being created: 'delay' (the mean dep_delay) and 'n' (counting the number
-      of days with the same date). Lastly, the chain of functions filters the 
-      new data frame by only grabbing observations that have more than days
-      of the same date.")
+      of days with the same date, which is just the total number of flights for
+      that given day). Lastly, the chain of functions filters the 
+      new data frame by only grabbing observations that have more than 10 
+      flights of the same date.")
 
 day_delay <- flights %>% filter(!is.na(dep_delay)) %>%
   group_by(date) %>%
@@ -141,7 +146,95 @@ dest_delay <- flights %>%
     flights        = n()
   )
 
+airports.9 <- airports %>% 
+  select(-country) %>%
+  rename(dest = iata, name = airport)
+
+dest_delay <- dest_delay %>% arrange(dest)
+airports.9 <- airports.9 %>% arrange(dest)
+
+   # left_join: join matching rows from b to a.
+df.9a <- left_join(dest_delay, airports.9, "dest")
+
+df.9a %>% arrange(-mean_arr_delay) %>%
+  head(5) %>% 
+  select(state, city, mean_arr_delay) %>%
+  print() # cities and states with the highest mean_arr_delay:
+          # Anchorage, AK; Cedar Rapids, IA; Des Moines, IA; SF, CA; and 
+          # Beaumont/Port Arthur, TX.
+          # Obs. = 116
+
+
+    # inner_join: join only rows present in both a and b.
+df.9b <- inner_join(dest_delay, airports.9, "dest") # Obs. = 114
+cat("The number of observations joining the two datasets using left_join do
+    not match the number found in the new dataset using inner_join, which
+    makes sense.")
+
+df.9c <- right_join(dest_delay, airports.9, "dest")
+cat("There are 3,376 observations in this new dataset; only 116 existed using
+    left_join because the firt data frame (dest_delay) had 116 observations.
+    Almost every observation in the new dataset has NA in the mean_arr_delay
+    column using right_join. What I think is going on is that the bigger data
+    frame is the airports one, and when we right_joined dest_delay to it only 
+    116 mean_arr_delays were added (which came from the dest_delay data frame).")
+
+df.9d <- full_join(dest_delay, airports.9, "dest")
+cat("Just as I expected, the number of observations in this new dataset is more
+    than both the number of observations in the first two datasets (when using 
+    left_join and right_join individually). The new number is 3,378. Again,
+    many NAs exist in this resulting dataset. full_join joins the two data frames
+    by all rows; no rows are left out as is the case using left_ and right_join.
+    This process does result in NAs, however."
+)
 
 # Question 10
 
+hourly_delay <- flights %>% filter(!is.na(dep_delay)) %>%
+  group_by(date, hour) %>%         # resulting data frame (w/o filtering n> 10 as in day_delay)
+  summarise(                       # is 6,872.
+    dep_delay = mean(dep_delay),
+    n     = n()
+  ) 
+
+hourly_delay.10 <- inner_join(hourly_delay, weather) # natural join; date and hour are used
+                                                     # in this case as they have common names
+hourly_delay.10 %>% 
+  arrange(-dep_delay) %>%
+  select(dep_delay, conditions) %>%
+  head(5) %>%
+  tbl_df() # weather condition most related to biggest delays is some form of cloudiness.
+
+
 # Question 11
+# using both tidyr & dplyr
+
+# 11a
+df.11a <- data.frame(treatment = c("a", "b"), subject1 = c(3, 4), subject2 = c(5, 6))
+df.11a
+
+install.packages("tidyr")
+library(tidyr)
+
+?gather
+
+df.11a <- df.11a %>% gather("subject", "value", 2:3) %>%
+  select(subject, treatment, value) %>%
+  mutate(subject = c(1,1,2,2))
+
+df.11a
+
+# 11b
+df.11b <- data.frame(
+  subject = c(1,1,2,2),
+  treatment = c("a","b","a","b"), value = c(3,4,5,6)
+)
+
+df.11b
+?spread
+
+df.11b <- df.11b %>% spread(subject, value)
+df.11b
+
+
+
