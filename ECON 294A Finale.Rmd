@@ -1,0 +1,187 @@
+---
+title: "##ECON 294A Final Exam"
+author: "Dylan McCombs"
+date: "March 14, 2016"
+output: html_document
+---
+
+```{r setup, include=F}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(cache = TRUE)
+knitr::opts_chunk$set(warnings = F)
+```
+
+### Introduction
+Upon first reading the assignment handout, I was excited to get started. I figured that the work that it involved was going to be quite challenging, given the fact that my classmates and I had yet to actually use sqlite and many of the tools that it entails. However, once I had started this assignment, I realized that the challenge of obtaining decent and useful results was even greater than initially thought. 
+
+Finding the relationship of departure delays and flight cancellations with the following categories proved quite difficult:
+
+a) weather
+
+b) time of day, day of week, time of year, and other time aspects
+
+c) airport destination
+
+d) plane charactersitics
+
+Unfortunately, the results shown in my "Analysis" section are scarce and unhelpful, and I could not figure out why I was getting an error message stating that the flights_weather data was not found as I was able to run it in R before putting the code in this .Rmd file.
+
+```{r,echo=F}
+library("dplyr")  #for dplyr
+# install.packages("RSQLite")
+library("RSQLite") #for sqllite
+# install.packages("nycflights13")
+library("nycflights13")
+
+###### Obtaining & organizing data ######
+
+### Creating a new empty database ###
+my_294A.db <- src_sqlite("my_294A.db.sqlite3", create = T)
+my_294A.db
+
+
+
+```{r, echo=F, eval=F}
+### Creating df tables in my db ###
+weather_sqlite <- copy_to(
+  my_294A.db, weather, temporary = FALSE, 
+  indexes = list(
+    c("year", "month","day","hour"),
+    "origin")
+)
+
+planes_sqlite <- copy_to(
+  my_294A.db, planes, temporary = FALSE, 
+  indexes = list("tailnum", "engine", "type", "seats")
+)
+
+flights_sqlite <- copy_to(
+  my_294A.db, flights, temporary = FALSE, 
+  indexes = list(
+    c("year", "month", "day"), "dest", "origin", 
+    "dep_delay",  "tailnum", "dep_time", "arr_time")
+)
+
+airlines_sqlite <- copy_to(
+  my_294A.db, airlines, temporary = FALSE, 
+  indexes = list("carrier")
+)
+
+airports_sqlite <- copy_to(
+  my_294A.db, airports, temporary = FALSE, 
+  indexes = list("faa", "lat", "lon", "alt")
+)
+
+# caching data
+nycflights13_sqlite()
+my_294A.db
+
+# Creating dataframe tables from src query:
+flights_sqlite <- tbl(nycflights13_sqlite(), "flights")
+flights_sqlite
+#airports_sqlite <- tbl(nycflights13_sqlite(), "airports")
+#airports_sqlite
+planes_sqlite <- tbl(nycflights13_sqlite(), "planes")
+planes_sqlite
+weather_sqlite <- tbl(nycflights13_sqlite(), "weather")
+weather_sqlite
+
+```
+
+```{r, echo=F, eval=T}
+
+# merging flights and planes by tailnum
+# merging flights and weather by common names
+
+# naturally joining flights & weather by: 
+# c("year", "month", "day", "origin", "hour")
+flights_weather <- inner_join(flights, weather) #117251 obs.
+
+# creating other vars. & organizing dataframe
+flights_weather <- flights_weather %>%
+  mutate(
+    date           = paste(year, month, day, sep = "-"),
+    date           = as.Date(date, "%Y-%m-%d"),
+    cancellations  = ifelse(is.na(arr_time), 1, 0),
+    sig_dep_delays = ifelse(dep_delay>30, 1, 0),
+    dest           = as.factor(dest),
+    carrier        = as.factor(carrier),
+    dep_time       = as.ts(dep_time),
+    month          = as.factor(month)
+  ) %>%
+  select(-year, -day) %>%
+  select(date, dep_delay, arr_delay, cancellations, 
+         sig_dep_delays, everything())
+
+sum(flights_weather$cancellations==1, na.rm=T) # 151 cancellations
+sum(flights_weather$sig_dep_delays==1, na.rm=T) # 19873 sig. dep. delays
+
+
+# naturally joining flights & planes by: 
+# c("year", "tailnum")
+flights_planes <- inner_join(flights, planes, 
+                             by="tailnum") #284170 obs.
+
+# creating other vars. & organizing dataframe
+flights_planes <- flights_planes %>% 
+  rename(year = year.x, year_built = year.y) %>%
+  mutate(
+    date           = paste(year, month, day, sep = "-"),
+    date           = as.Date(date, "%Y-%m-%d"),
+    cancellations  = ifelse(is.na(arr_time),1,0),
+    sig_dep_delays = ifelse(dep_delay>30, 1, 0),
+    dest           = as.factor(dest),
+    carrier        = as.factor(carrier),
+    dep_time       = as.ts(dep_time),
+    month          = as.factor(month),
+    year_built     = as.factor(year_built),
+    type           = as.factor(type),
+    manufacturer   = as.factor(manufacturer),
+    model          = as.factor(model),
+    engines        = as.factor(engines),
+    seats          = as.factor(seats),
+    engine_type    = as.factor(engine)
+  ) %>%
+  select(-year, -day) %>%
+  select(date, dep_delay, arr_delay, cancellations, 
+         sig_dep_delays, everything())
+
+sum(flights_planes$cancellations==1, na.rm=T) # 4551 obs.
+sum(flights_planes$sig_dep_delays==1, na.rm=T) # 42067 obs.
+
+###### Simple Analyses ######
+library(ggplot2)
+
+```
+
+### Analyses
+
+```{r, echo=F, eval=T}
+FW.glm1 <- glm(sig_dep_delays~temp+dewp+humid+wind_speed+
+                 precip+pressure+visib, flights_weather,
+                 family=binomial(link='logit'))
+```
+
+```{r, echo=F}
+summary(FW.glm1)
+```
+
+```{r, echo=F, eval=T}
+FW.glm2 <- glm(cancellations~temp+dewp+humid+wind_speed+
+                 precip+pressure+visib, flights_weather, 
+                 family=binomial(link='logit'))
+```
+
+```{r, echo=F, eval=T}
+summary(FW.glm2)
+```
+
+### Conclusions
+
+
+
+
+
+
+
+
