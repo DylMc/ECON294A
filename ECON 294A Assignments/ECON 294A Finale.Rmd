@@ -12,7 +12,7 @@ knitr::opts_chunk$set(warnings = F)
 ```
 
 ### Introduction
-Upon first reading the assignment handout, I was excited to get started. I figured that the work that it involved was going to be quite challenging, given the fact that my classmates and I had yet to actually use sqlite and many of the tools that it entails. However, once I had started this assignment, I realized that the challenge of obtaining decent and useful results was even greater than initially thought. 
+Upon first reading the assignment handout, I was excited to get started. I imagined the work that it involved was going to be quite challenging but enjoyable, given the fact that my classmates and I had yet to actually use sqlite and many of the tools that it entails. However, once started, this assignment proved more difficult that initially thought. I realized that it was a great challenge to obtain decent and useful results.
 
 Finding the relationship of departure delays and flight cancellations with the following categories proved quite difficult:
 
@@ -24,9 +24,9 @@ c) airport destination
 
 d) plane charactersitics
 
-Unfortunately, the results shown in my "Analysis" section are scarce and unhelpful, and I could not figure out why I was getting an error message stating that the flights_weather data was not found as I was able to run it in R before putting the code in this .Rmd file.
+Some of the results shown in my "Analysis" section aren't all that helpful, but much of what I decided to include seems to make sense.
 
-```{r,echo=F}
+```{r,echo=F, include=F}
 library("dplyr")  #for dplyr
 # install.packages("RSQLite")
 library("RSQLite") #for sqllite
@@ -88,7 +88,7 @@ weather_sqlite
 
 ```
 
-```{r, echo=F, eval=T}
+```{r, echo=F, eval=T, include=F}
 
 # merging flights and planes by tailnum
 # merging flights and weather by common names
@@ -156,32 +156,127 @@ library(ggplot2)
 
 ### Analyses
 
-```{r, echo=F, eval=T}
-FW.glm1 <- glm(sig_dep_delays~temp+dewp+humid+wind_speed+
-                 precip+pressure+visib, flights_weather,
-                 family=binomial(link='logit'))
+Initially, I thought it was a good idea to create dichotomous variables to attempt to predict the probability of significant departure delays and cancellations that various factors found in the "flights", "weather", and "planes" datasets contributed to. I created the dichotomous variable 'significant departure delays' to represent those delays that were 30 minutes or greater. My reasoning behind this is that I figured delays that were somewhat shorter could be due to many other factors, and they short delays weren't too significant on an every day basis. The dichotomous variable 'cancellations' represents whether a flight was cancelled or not (1 if it was, and 0 otherwise).
+
+
+The results of the first model I ran are below. I decided first to explore the relationships of flight cancellations and significant departure delays with various weather-related occurrences. We can see that humidity, wind speed, precipitation, air pressure, and visibility were the most significant contributors to the probability of significant departure delays. The coefficients in the table don't mean much, however, as I would need to acutally evaluate the marginal effect to obtain the actual predicted effect each variable had on the probability of significant departure delays.
+
+```{r, echo=F, eval=T, include=F}
+FW.glm.main1 <- glm(sig_dep_delays~temp+dewp+humid+wind_speed+
+                wind_gust+precip+pressure+visib, flights_weather, 
+                family=binomial(link='logit'))
 ```
 
 ```{r, echo=F}
+summary(FW.glm.main1)
+```
+
+
+The results below are similar to those discussed above, except for the fact that here, I am predicting the probability of flight cancellation, rather than significant departure delays. Here, we can see that visibility was the most significant contributor to a flight cancellation.
+
+```{r, echo=F, eval=T, include=F}
+FW.glm.main2 <- glm(cancellations~temp+dewp+humid+wind_speed+
+                wind_gust+precip+pressure+visib, flights_weather, 
+                family=binomial(link='logit'))
+```
+
+```{r, echo=F, eval=T}
+summary(FW.glm.main2)
+```
+
+```{r, echo=F, eval=T, include=F}
+FW.glm1 <- glm(sig_dep_delays~precip, flights_weather,
+               family=binomial(link='logit'))
+               
 summary(FW.glm1)
-```
+range(flights_weather$precip, na.rm=T)
+xprecip <- seq(0, 2, 0.01)
+y.glm1 <- predict(FW.glm1, list(precip = xprecip), type="response")
 
-```{r, echo=F, eval=T}
-FW.glm2 <- glm(cancellations~temp+dewp+humid+wind_speed+
-                 precip+pressure+visib, flights_weather, 
-                 family=binomial(link='logit'))
-```
 
-```{r, echo=F, eval=T}
+FW.glm2 <- glm(sig_dep_delays~wind_speed, flights_weather, 
+               family=binomial(link='logit'))
 summary(FW.glm2)
+range(flights_weather$wind_speed, na.rm=T)
+xwind_speed <- seq(0, 1050, 0.05)
+y.glm2 <- predict(FW.glm2, list(wind_speed = xwind_speed), type="response")
+
+
+FW.glm3 <- glm(sig_dep_delays~pressure, flights_weather, 
+               family=binomial(link='logit'))
+summary(FW.glm3)
+range(flights_weather$pressure, na.rm=T)
+xpressure <- seq(980, 1045, 0.05)
+y.glm3 <- predict(FW.glm3, list(pressure = xpressure), type="response")
+
+
+FW.glm4 <- glm(sig_dep_delays~visib, flights_weather, 
+               family=binomial(link='logit'))
+summary(FW.glm4)
+range(flights_weather$visib, na.rm=T)
+xvisib <- seq(0.1, 11, 0.05)
+y.glm4 <- predict(FW.glm4, list(visib = xvisib), type="response")
+```
+
+
+The following plots display the estimated relationships that four arbitrarily chosen weather-related variables have with the probability of a significant departure delay. Interpreting these plots is simple, and seems to make sense. For instance, we can say that as air pressure decreases, the probability of having a significant departure delay increases. It is known that low air pressure generally leads to various hectic weather patterns, such as precipitation and increasing wind speeds.
+
+```{r, echo=F, eval=T, include=T}
+par(mfrow=c(2,2), oma = c(0, 0, 2, 0))
+plot(flights_weather$precip, flights_weather$sig_dep_delays, 
+     pch = 10, xlab = "Precipitation", ylab="")
+lines(xprecip, y.glm1, col='blue')
+
+plot(flights_weather$wind_speed, flights_weather$sig_dep_delays, 
+     pch = 10, xlab = "Wind Speed", ylab="")
+lines(xwind_speed, y.glm2, col='blue')
+
+plot(flights_weather$pressure, flights_weather$sig_dep_delays, 
+     pch = 10, xlab = "Pressure", ylab="")
+lines(xpressure, y.glm3, col='blue')
+
+plot(flights_weather$visib, flights_weather$sig_dep_delays, 
+     pch = 10, xlab = "Visibility", ylab="")
+lines(xvisib, y.glm4, col='blue')
+mtext("Probability of Significant Departure Delays", outer = TRUE)
+```
+
+Finally, I decided to explore the relationships of flight cancellations and departure delays (measured in minutes) with various characteristics of the plane flown, or scheduled to fly if cancelled.
+
+This first graph displays the occurrence of a flight cancellation based on the type of engine in the plane. It is obvious that the turbo-fan engine resulted in the greatest number of flight cancellations. This isn't to say that turbo-fan engines can't be trusted, however. These results could just be due to this particular type of engine being the most frequently used. We would have to control for this and other possibilities to really conclude that these certain engines are unreliable. This is interesting to see, however.
+
+```{r, echo=F, eval=T, include=T}
+ggplot(flights_planes, aes(engine, cancellations)) + 
+  geom_bar(stat='identity', aes(fill=engine))
+```
+
+This following bar graph displays the frequency of flight cancellations by month, and then separates the data further into the type of plane scheduled to fly. Again, this analysis isn't complete, but we do see that winter months (when weather is usually the worst) were correlated with the number of flight cancellations. Something unexpected I found was the occurrence of a large number of flight cancellations in the summer months, as well, such June and July.
+
+```{r, echo=F, eval=T, include=T}
+ggplot(flights_planes, aes(month, cancellations, fill=type)) + 
+  geom_bar(stat='identity')
+```
+
+Similar to the bar graph above, this one again displays by months, but here I am looking at total time of departure delays to try to analyze any differences. Just as in the previous graph, this one displays the relationship that plane issues have with summer months; June and July have significant differences from other months in terms of total time of departure delays.
+
+```{r, echo=F, eval=T, include=T, warning=F}
+ggplot(flights_planes, aes(month, dep_delay)) + 
+  geom_bar(stat='identity', aes(fill=type))
+```
+
+The last graphical (and other) analysis I performed was on the relationship between the year a plane was built and the total time of departure delays. We can see that newer planes tend to have the greatest time spent on delay. Again, this is probably due to some unobserved factor, such as newer planes being put to use more frequently than older ones (the likely suspect of this result).
+
+```{r, echo=F, eval=T, include=T}
+plot(flights_planes$year_built, flights_planes$dep_delay,
+     main="NYC Dep. Delays in 2013\nby Year Plane Built", 
+     xlab="Year Built", ylab="Total Dep. Delay (in minutes)")
 ```
 
 ### Conclusions
 
+Much of the results that I displayed and discussed here in my report seemed to fit with my expectations. It was quite intersting to see some unexpected results, as well, such as summer months leading to a greater number of flight cancellations and total time spent on departure delay.
 
-
-
-
+Although I found this assignment quite challenging and very frustrating at times, it was absolutely a great learning experience. Generally, in the real world of data analysis, a project like this is something I would expect, so overall it wasn't too bad. I wish that I had a little more time to explore some of the tools that this assignment involved, and that I could gain a better understanding of and ability to use SQL and sqlite because I know that those are very important tools.
 
 
 
